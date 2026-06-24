@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hnefatafl — Viking Chess</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Root ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0d0a06;
+  --surface:    #1a1208;
+  --surface2:   #221810;
+  --border:     #5a3d1a;
+  --border2:    #7a5530;
+  --gold:       #c8922a;
+  --gold-lt:    #e8b84b;
+  --gold-dim:   #8a6018;
+  --sq-light:   #c8945a;
+  --sq-dark:    #a06838;
+  --sq-corner:  #3a1a06;
+  --sq-throne:  #4e2510;
+  --att:        #1e1e38;
+  --att-lt:     #3a3a66;
+  --att-bd:     #55558a;
+  --def:        #f0ebe0;
+  --def-lt:     #fffff0;
+  --def-bd:     #c0b090;
+  --king:       #c8922a;
+  --king-lt:    #ffe87a;
+  --king-bd:    #8a5c10;
+  --txt:        #ecdcc0;
+  --txt2:       #9a8060;
+  --txt3:       #6a5040;
+  --red:        #c0302a;
+  --green:      #2a8050;
+  --sel:        rgba(232,184,75,0.45);
+  --valid-dot:  rgba(232,184,75,0.70);
+  --last-hi:    rgba(232,184,75,0.18);
+}
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: 'Crimson Text', serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 12px 40px;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+header { text-align: center; margin-bottom: 18px; }
+
+h1 {
+  font-family: 'Cinzel', serif;
+  font-weight: 900;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  letter-spacing: .2em;
+  color: var(--gold-lt);
+  text-shadow: 0 0 50px rgba(200,146,42,.5);
+  line-height: 1;
+}
+
+.runes {
+  font-size: .75rem;
+  letter-spacing: .35em;
+  color: var(--txt3);
+  margin-top: 4px;
+}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 980px;
+}
+
+/* ── Board ───────────────────────────────────────────────────────────────── */
+.board-container { display: flex; flex-direction: column; align-items: center; }
+
+.axis-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 3px;
+  padding-left: 24px;
+}
+
+.axis-lbl {
+  font-family: 'Cinzel', serif;
+  font-size: .6rem;
+  color: var(--txt3);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.board-inner { display: flex; }
+
+.row-labels {
+  display: flex;
+  flex-direction: column;
+  margin-right: 4px;
+}
+
+.row-lbl {
+  font-family: 'Cinzel', serif;
+  font-size: .6rem;
+  color: var(--txt3);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+  flex-shrink: 0;
+}
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(11, 1fr);
+  border: 3px solid var(--border);
+  box-shadow:
+    0 0 0 1px var(--border2),
+    0 0 60px rgba(200,146,42,.12),
+    inset 0 0 30px rgba(0,0,0,.5);
+  border-radius: 2px;
+  background: #16082a;
+  gap: 0;
+}
+
+/* ── Cells ───────────────────────────────────────────────────────────────── */
+.cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: background .12s;
+  user-select: none;
+}
+
+.cell.light  { background: var(--sq-light); }
+.cell.dark   { background: var(--sq-dark);  }
+.cell.corner { background: var(--sq-corner); }
+.cell.throne { background: var(--sq-throne); }
+
+/* corner ✦ marker */
+.cell.corner::before {
+  content: '✦';
+  font-size: .65em;
+  color: rgba(200,146,42,.55);
+  pointer-events: none;
+  position: absolute;
+}
+
+/* throne ✦ marker */
+.cell.throne::before {
+  content: '✦';
+  font-size: .75em;
+  color: rgba(200,146,42,.4);
+  pointer-events: none;
+  position: absolute;
+}
+
+.cell.selected { background: var(--sel) !important; }
+
+/* valid move dot */
+.cell.valid { cursor: pointer; }
+.cell.valid::after {
+  content: '';
+  position: absolute;
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: var(--valid-dot);
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: 0 0 6px rgba(232,184,75,.5);
+}
+/* valid cell WITH a piece shows ring instead */
+.cell.valid.has-piece::after {
+  width: 85%;
+  height: 85%;
+  background: transparent;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+}
+
+.cell.last-move { background: var(--last-hi) !important; }
+
+/* capture flash */
+@keyframes capFlash {
+  0%   { background: rgba(200,40,40,.65); }
+  100% { background: inherit; }
+}
+.cell.cap-flash { animation: capFlash .45s ease-out; }
+
+/* ── Pieces ──────────────────────────────────────────────────────────────── */
+.piece {
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+  transition: transform .12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.piece-att {
+  background: radial-gradient(circle at 38% 32%, var(--att-lt), var(--att));
+  border: 1.5px solid var(--att-bd);
+  box-shadow: 0 2px 7px rgba(0,0,0,.75), inset 0 1px 2px rgba(255,255,255,.08);
+}
+
+.piece-def {
+  background: radial-gradient(circle at 38% 32%, var(--def-lt), var(--def));
+  border: 1.5px solid var(--def-bd);
+  box-shadow: 0 2px 7px rgba(0,0,0,.55), inset 0 1px 3px rgba(255,255,255,.55);
+}
+
+.piece-king {
+  width: 76%;
+  height: 76%;
+  background: radial-gradient(circle at 38% 32%, var(--king-lt), var(--king));
+  border: 2px solid var(--king-bd);
+  box-shadow: 0 2px 12px rgba(200,146,42,.7), inset 0 1px 4px rgba(255,255,200,.5);
+  font-size: .85em;
+  color: #4a2800;
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+}
+
+.cell.selected .piece { transform: scale(1.12); filter: brightness(1.15); }
+
+/* piece enter animation */
+@keyframes pieceIn {
+  from { transform: scale(.4); opacity: 0; }
+  to   { transform: scale(1);  opacity: 1; }
+}
+.piece-new { animation: pieceIn .2s ease-out; }
+
+/* ── Side Panel ──────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 18px 16px;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-family: 'Cinzel', serif;
+  font-size: .78rem;
+  letter-spacing: .14em;
+  color: var(--gold);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+/* turn badge */
+#turn-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  transition: border-color .3s, background .3s;
+}
+
+#turn-badge.att { border-color: var(--att-bd); background: rgba(40,40,80,.4); }
+#turn-badge.def { border-color: var(--def-bd); background: rgba(240,235,224,.08); }
+#turn-badge.win { border-color: var(--gold);   background: rgba(200,146,42,.12); }
+
+.badge-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background .3s;
+}
+
+.badge-txt {
+  font-family: 'Cinzel', serif;
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .05em;
+  color: var(--txt);
+  transition: color .3s;
+}
+
+/* counts */
+.counts { display: flex; gap: 8px; }
+
+.cnt-box {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.cnt-num {
+  font-family: 'Cinzel', serif;
+  font-size: 1.45rem;
+  color: var(--gold-lt);
+  line-height: 1;
+}
+
+.cnt-lbl {
+  font-size: .62rem;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-top: 3px;
+}
+
+/* move log */
+#log {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 8px;
+  max-height: 130px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.log-entry {
+  font-size: .78rem;
+  color: var(--txt2);
+  border-bottom: .5px solid var(--border);
+  padding-bottom: 3px;
+  line-height: 1.3;
+}
+.log-entry:last-child { border: none; }
+.log-cap { color: var(--red); }
+.log-win { color: var(--gold-lt); font-family: 'Cinzel', serif; }
+
+/* status msg */
+#msg {
+  font-size: .82rem;
+  font-style: italic;
+  color: var(--txt3);
+  min-height: 1.2em;
+  text-align: center;
+}
+
+/* legend */
+.legend { display: flex; flex-direction: column; gap: 7px; }
+
+.leg-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: .82rem;
+  color: var(--txt2);
+}
+
+.leg-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* buttons */
+.btn-row { display: flex; gap: 6px; }
+
+.btn {
+  font-family: 'Cinzel', serif;
+  font-size: .72rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  border: 1px solid var(--gold-dim);
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background .2s, color .2s;
+  flex: 1;
+}
+
+.btn:hover  { background: var(--gold-dim); color: var(--bg); }
+.btn:active { transform: scale(.97); }
+.btn-full   { flex: none; width: 100%; }
+
+/* ── Win Overlay ─────────────────────────────────────────────────────────── */
+#overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.78);
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+#overlay.show { display: flex; }
+
+.overlay-box {
+  background: var(--surface);
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 80px rgba(200,146,42,.35);
+  padding: 44px 52px;
+  text-align: center;
+  max-width: 380px;
+  border-radius: 4px;
+  animation: boxIn .35s ease-out;
+}
+@keyframes boxIn {
+  from { transform: scale(.85); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+.overlay-box h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.7rem;
+  color: var(--gold-lt);
+  margin-bottom: 8px;
+}
+.overlay-box p {
+  color: var(--txt2);
+  font-style: italic;
+  margin-bottom: 24px;
+  font-size: 1rem;
+}
+
+/* ── Loading spinner ─────────────────────────────────────────────────────── */
+#loading {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+  color: var(--gold-lt);
+  letter-spacing: .1em;
+}
+#loading.show { display: flex; }
+
+/* scrollbar styling */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--surface2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>HNEFATAFL</h1>
+  <p class="runes"><strong>The Viking Chess</strong></p>
+</header>
+
+<div class="layout">
+
+  <!-- ── Board ── -->
+  <div class="board-container">
+    <div class="axis-row" id="col-axis"></div>
+    <div class="board-inner">
+      <div class="row-labels" id="row-axis"></div>
+      <div id="board"></div>
+    </div>
+  </div>
+
+  <!-- ── Panel ── -->
+  <div class="panel">
+    <div class="panel-title">Game State</div>
+
+    <!-- Turn -->
+    <div id="turn-badge" class="att">
+      <div class="badge-dot" id="badge-dot" style="background:var(--att-bd)"></div>
+      <div class="badge-txt" id="badge-txt">Attacker's Turn</div>
+    </div>
+
+    <!-- Counts -->
+    <div class="counts">
+      <div class="cnt-box">
+        <div class="cnt-num" id="cnt-att">24</div>
+        <div class="cnt-lbl">Attackers</div>
+      </div>
+      <div class="cnt-box">
+        <div class="cnt-num" id="cnt-def">12</div>
+        <div class="cnt-lbl">Defenders</div>
+      </div>
+      <div class="cnt-box">
+        <div class="cnt-num" id="cnt-moves">0</div>
+        <div class="cnt-lbl">Moves</div>
+      </div>
+    </div>
+
+    <!-- Status msg -->
+    <div id="msg">Select an attacker piece to begin.</div>
+
+    <!-- Move Log -->
+    <div class="panel-title" style="margin-top:2px">Move Log</div>
+    <div id="log"><div class="log-entry">Game started — Attackers move first.</div></div>
+
+
+    <div class="panel-title" style="margin-top:2px">Difficulty</div>
+<div class="btn-row">
+  <button class="btn" id="btn-easy"   onclick="setDiff('easy')">Easy</button>
+  <button class="btn" id="btn-medium" onclick="setDiff('medium')">Medium</button>
+  <button class="btn" id="btn-hard"   onclick="setDiff('hard')">Hard</button>
+</div>
+<div id="diff-display" style="font-size:.75rem;color:var(--gold);text-align:center">
+  Difficulty: Medium
+</div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn" onclick="undoMove()">⟵ Undo</button>
+      <button class="btn" onclick="newGame()">New Game</button>
+    </div>
+
+    <!-- Legend -->
+    <div class="panel-title" style="margin-top:2px">Legend</div>
+    <div class="legend">
+      <div class="leg-item">
+        <div class="leg-dot" style="background:var(--att);border:1px solid var(--att-bd)"></div>
+        Attacker (Black)
+      </div>
+      <div class="leg-item">
+        <div class="leg-dot" style="background:var(--def);border:1px solid var(--def-bd)"></div>
+        Defender (White)
+      </div>
+      <div class="leg-item">
+        <div class="leg-dot" style="background:var(--king);border:1px solid var(--king-bd)"></div>
+        King ♛
+      </div>
+      <div class="leg-item">
+        <div class="leg-dot" style="background:var(--sq-corner);border:1px solid var(--gold-dim)"></div>
+        Corner / Goal ✦
+      </div>
+      <div class="leg-item">
+        <div class="leg-dot" style="background:var(--sq-throne);border:1px solid var(--gold-dim)"></div>
+        Throne ✦ (center)
+      </div>
+    </div>
+
+    <!-- Rules quick-ref -->
+    <div class="panel-title" style="margin-top:2px">Quick Rules</div>
+    <div style="font-size:.78rem;color:var(--txt3);line-height:1.6">
+      All pieces move like a rook.<br>
+      Capture by sandwiching.<br>
+      King escapes to a corner → Defenders win.<br>
+      King surrounded → Attackers win.
+    </div>
+  </div>
+</div>
+
+<!-- Win Overlay -->
+<div id="overlay">
+  <div class="overlay-box">
+    <h2 id="ov-title">Game Over</h2>
+    <p  id="ov-msg">The battle is decided.</p>
+    <button class="btn btn-full" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading">Loading…</div>
+
+<script>
+// ── Constants ────────────────────────────────────────────────────────────────
+const EMPTY=0, ATTACKER=1, DEFENDER=2, KING=3;
+const CORNERS = new Set(['0,0','0,10','10,0','10,10']);
+const CENTER  = '5,5';
+const BS      = 11;
+
+// ── State ────────────────────────────────────────────────────────────────────
+let gameId    = null;
+let state     = null;
+let selected  = null;   // [r,c] or null
+let validMoves = [];    // [[r,c],…]
+let lastFrom  = null;
+let lastTo    = null;
+let CELL_SIZE = 46;
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  computeCellSize();
+  buildGrid();
+  await loadOrCreateGame();
+});
+
+window.addEventListener('resize', () => {
+  computeCellSize();
+  buildGrid();
+  if (state) renderBoard(false);
+});
+
+function computeCellSize() {
+  const avail = Math.min(window.innerWidth - 260, window.innerHeight - 160, 550);
+  CELL_SIZE = Math.max(30, Math.floor(avail / BS));
+}
+
+// ── Grid Construction ─────────────────────────────────────────────────────────
+function buildGrid() {
+  // Column axis
+  const colAxis = document.getElementById('col-axis');
+  colAxis.innerHTML = '';
+  colAxis.style.paddingLeft = '24px';
+  for (let c = 0; c < BS; c++) {
+    const lbl = document.createElement('div');
+    lbl.className = 'axis-lbl';
+    lbl.style.width = CELL_SIZE + 'px';
+    lbl.textContent = c;
+    colAxis.appendChild(lbl);
+  }
+
+  // Row axis
+  const rowAxis = document.getElementById('row-axis');
+  rowAxis.innerHTML = '';
+  for (let r = 0; r < BS; r++) {
+    const lbl = document.createElement('div');
+    lbl.className = 'row-lbl';
+    lbl.style.height = CELL_SIZE + 'px';
+    lbl.style.width  = '22px';
+    lbl.textContent  = r;
+    rowAxis.appendChild(lbl);
+  }
+
+  // Board cells
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  board.style.gridTemplateColumns = `repeat(${BS}, ${CELL_SIZE}px)`;
+
+  for (let r = 0; r < BS; r++) {
+    for (let c = 0; c < BS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell ' + cellBaseClass(r, c);
+      cell.style.width  = CELL_SIZE + 'px';
+      cell.style.height = CELL_SIZE + 'px';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      cell.addEventListener('click', onCellClick);
+      board.appendChild(cell);
+    }
+  }
+}
+
+function cellBaseClass(r, c) {
+  const k = r + ',' + c;
+  if (CORNERS.has(k)) return 'corner';
+  if (k === CENTER)   return 'throne';
+  return (r + c) % 2 === 0 ? 'light' : 'dark';
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderBoard(animate = true) {
+  if (!state) return;
+  const validSet = new Set(validMoves.map(([r, c]) => r + ',' + c));
+  let attCnt = 0, defCnt = 0;
+
+  document.querySelectorAll('.cell').forEach(cell => {
+    const r = +cell.dataset.r, c = +cell.dataset.c;
+    const piece = state.board[r][c];
+    const key   = r + ',' + c;
+
+    // base class
+    cell.className = 'cell ' + cellBaseClass(r, c);
+
+    // highlights
+    if (selected && selected[0] === r && selected[1] === c) cell.classList.add('selected');
+    if (validSet.has(key)) cell.classList.add('valid');
+    if (piece !== EMPTY)   cell.classList.add('has-piece');
+    if (lastFrom && lastFrom[0]===r && lastFrom[1]===c) cell.classList.add('last-move');
+    if (lastTo   && lastTo[0]===r   && lastTo[1]===c)   cell.classList.add('last-move');
+
+    // piece
+    cell.innerHTML = '';
+    if (piece !== EMPTY) {
+      const p = document.createElement('div');
+      p.className = 'piece ' + pieceClass(piece) + (animate ? ' piece-new' : '');
+      if (piece === KING) p.textContent = '♛';
+      cell.appendChild(p);
+    }
+
+    if (piece === ATTACKER) attCnt++;
+    if (piece === DEFENDER) defCnt++;
+  });
+
+  // Panel
+  document.getElementById('cnt-att').textContent   = attCnt;
+  document.getElementById('cnt-def').textContent   = defCnt;
+  document.getElementById('cnt-moves').textContent = state.move_count;
+
+  const badge = document.getElementById('turn-badge');
+  const dot   = document.getElementById('badge-dot');
+  const txt   = document.getElementById('badge-txt');
+
+  if (state.winner) {
+    badge.className = 'win';
+    dot.style.background = 'var(--gold)';
+    txt.textContent = state.winner.charAt(0).toUpperCase() + state.winner.slice(1) + ' wins!';
+    txt.style.color = 'var(--gold-lt)';
+  } else if (state.current_player === 'attacker') {
+    badge.className = 'att';
+    dot.style.background = 'var(--att-bd)';
+    txt.textContent = "Attacker's Turn";
+    txt.style.color = 'var(--txt)';
+  } else {
+    badge.className = 'def';
+    dot.style.background = 'var(--def-bd)';
+    txt.textContent = "Defender's Turn";
+    txt.style.color = 'var(--txt)';
+  }
+}
+
+function pieceClass(piece) {
+  if (piece === ATTACKER) return 'piece-att';
+  if (piece === DEFENDER) return 'piece-def';
+  if (piece === KING)     return 'piece-king';
+  return '';
+}
+
+// ── Interaction ───────────────────────────────────────────────────────────────
+async function onCellClick(e) {
+  if (!state || state.winner) return;
+  const r = +e.currentTarget.dataset.r;
+  const c = +e.currentTarget.dataset.c;
+  const piece = state.board[r][c];
+  const pside = piece === ATTACKER ? 'attacker'
+              : (piece === DEFENDER || piece === KING) ? 'defender' : null;
+
+  // If a move destination is clicked
+  if (selected) {
+    const isValid = validMoves.some(([vr, vc]) => vr === r && vc === c);
+    if (isValid) {
+      await doMove(selected[0], selected[1], r, c);
+      return;
+    }
+    // Clicked elsewhere — deselect
+    selected   = null;
+    validMoves = [];
+    setMsg('');
+  }
+
+  // Select own piece
+  if (pside === state.current_player) {
+    // Fetch valid moves from server
+    const data = await apiFetch('/api/moves', {
+      game_id: gameId, row: r, col: c
+    });
+    if (!data) return;
+    if (data.error) { setMsg(data.error); renderBoard(false); return; }
+    selected   = [r, c];
+    validMoves = data.moves;
+    setMsg(validMoves.length
+      ? validMoves.length + ' move' + (validMoves.length > 1 ? 's' : '') + ' available'
+      : 'No valid moves for this piece');
+  }
+  renderBoard(false);
+}
+
+async function doMove(fr, fc, tr, tc) {
+  const data = await apiFetch('/api/move', {
+    game_id:  gameId,
+    from_row: fr, from_col: fc,
+    to_row:   tr, to_col:   tc,
+  });
+  if (!data) return;
+  if (data.error) { setMsg(data.error); return; }
+
+  // Flash captures
+  if (data.captures && data.captures.length) {
+    data.captures.forEach(([cr, cc]) => {
+      const cell = getCell(cr, cc);
+      if (cell) cell.classList.add('cap-flash');
+    });
+  }
+
+  lastFrom = [fr, fc];
+  lastTo   = [tr, tc];
+  selected = null; validMoves = [];
+  state    = data;
+  setMsg('');
+  addLog(fr, fc, tr, tc, data.captures, data.winner);
+  renderBoard(true);
+
+  if (data.winner) {
+    setTimeout(() => showOverlay(data.winner), 450);
+  }
+}
+
+// ── Game Control ──────────────────────────────────────────────────────────────
+async function newGame() {
+  document.getElementById('overlay').classList.remove('show');
+  selected = null; validMoves = []; lastFrom = null; lastTo = null;
+  clearLog();
+  const data = await apiFetch('/api/new', {});
+  if (!data) return;
+  gameId = data.game_id;
+  state  = data;
+  setMsg('Select an attacker piece to begin.');
+  addLog(null, null, null, null, [], null, 'New game started. Attackers move first.');
+  renderBoard(false);
+}
+
+async function undoMove() {
+  if (!gameId) return;
+  const data = await apiFetch('/api/undo', { game_id: gameId });
+  if (!data) return;
+  if (data.error) { setMsg(data.error); return; }
+  selected = null; validMoves = []; lastFrom = null; lastTo = null;
+  state = data;
+  setMsg('Move undone.');
+  addLog(null,null,null,null,[],null,'↩ Move undone.');
+  renderBoard(false);
+}
+
+async function loadOrCreateGame() {
+  // Try to restore existing game
+  const saved = sessionStorage.getItem('hnef_game_id');
+  if (saved) {
+    const data = await apiFetch('/api/state?game_id=' + saved, null, 'GET');
+    if (data && !data.error) {
+      gameId = data.game_id || saved;
+      state  = data;
+      setMsg('Game restored.');
+      renderBoard(false);
+      return;
+    }
+  }
+  await newGame();
+}
+
+// ── API Helper ────────────────────────────────────────────────────────────────
+async function apiFetch(url, body, method = 'POST') {
+  setLoading(true);
+  try {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (method !== 'GET' && body !== null) opts.body = JSON.stringify(body);
+    const res  = await fetch(url, opts);
+    const data = await res.json();
+    if (gameId && data.game_id) {
+      sessionStorage.setItem('hnef_game_id', data.game_id);
+    }
+    return data;
+  } catch (err) {
+    setMsg('Connection error: ' + err.message);
+    return null;
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── UI Helpers ────────────────────────────────────────────────────────────────
+function getCell(r, c) {
+  return document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`);
+}
+
+function setMsg(txt) {
+  document.getElementById('msg').textContent = txt;
+}
+
+function setLoading(on) {
+  document.getElementById('loading').classList.toggle('show', on);
+}
+
+function clearLog() {
+  document.getElementById('log').innerHTML = '';
+}
+
+function addLog(fr, fc, tr, tc, caps, winner, customMsg) {
+  const log = document.getElementById('log');
+  const entry = document.createElement('div');
+  if (customMsg) {
+    entry.className = winner ? 'log-entry log-win' : 'log-entry';
+    entry.textContent = customMsg;
+  } else {
+    let txt = `[${fr},${fc}] → [${tr},${tc}]`;
+    if (caps && caps.length) {
+      txt += ` · captured ${caps.length} piece${caps.length>1?'s':''}`;
+      entry.className = 'log-entry log-cap';
+    } else {
+      entry.className = 'log-entry';
+    }
+    if (winner) {
+      entry.className = 'log-entry log-win';
+      txt = '🏆 ' + winner.charAt(0).toUpperCase() + winner.slice(1) + ' wins! ' + txt;
+    }
+    entry.textContent = txt;
+  }
+  log.insertBefore(entry, log.firstChild);
+  while (log.children.length > 30) log.removeChild(log.lastChild);
+}
+
+function showOverlay(winner) {
+  const msgs = {
+    defender: ['The King Has Escaped!',  'The White Army prevails. The King reaches safety.'],
+    attacker: ['The King Is Captured!',  'The Black Army closes in. The throne falls to the attackers.'],
+  };
+  document.getElementById('ov-title').textContent = msgs[winner][0];
+  document.getElementById('ov-msg').textContent   = msgs[winner][1];
+  document.getElementById('overlay').classList.add('show');
+}
+
+let currentDifficulty = 'medium';
+
+function setDiff(d) {
+  currentDifficulty = d;
+  document.getElementById('diff-display').textContent = 
+    'Difficulty: ' + d.charAt(0).toUpperCase() + d.slice(1);
+}
+
+// وغير newGame() لـ:
+async function newGame() {
+  document.getElementById('overlay').classList.remove('show');
+  selected = null; validMoves = []; lastFrom = null; lastTo = null;
+  clearLog();
+  const data = await apiFetch('/api/new', { difficulty: currentDifficulty });
+  if (!data) return;
+  gameId = data.game_id;
+  state  = data;
+  setMsg('Select an attacker piece to begin.');
+  addLog(null, null, null, null, [], null, 
+    `New game started (${currentDifficulty}). Attackers move first.`);
+  renderBoard(false);
+}
+
+</script>
+</body>
+</html>
